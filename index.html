@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>우리집 LLM 위키 가족 대시보드</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Noto Sans KR', 'Inter', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      overflow-x: hidden;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(30, 41, 59, 0.5);
+      border-radius: 8px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.6);
+      border-radius: 8px;
+    }
+    .markdown-body h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #334155;
+    }
+    .markdown-body h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #93c5fd;
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .markdown-body h3 {
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+    .markdown-body p {
+      font-size: 0.92rem;
+      line-height: 1.65;
+      color: #cbd5e1;
+      margin-bottom: 0.6rem;
+    }
+    .markdown-body ul {
+      list-style-type: disc;
+      padding-left: 1.25rem;
+      margin-bottom: 0.75rem;
+      color: #cbd5e1;
+      font-size: 0.92rem;
+      line-height: 1.65;
+    }
+    .markdown-body li {
+      margin-bottom: 0.25rem;
+    }
+    .markdown-body code {
+      background: #1e293b;
+      color: #38bdf8;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.35rem;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 select-none">
+
+  <!-- Top Wallpad Status Header -->
+  <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 sticky top-0 z-30 backdrop-blur">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Left: Brand & Live Clock -->
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-lg shadow-inner">
+            W
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">우리집 AI 위키 월패드</h1>
+              <span id="engineStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                스마트 위키 검색 모드
+              </span>
+            </div>
+            <p id="liveClockText" class="text-xs text-slate-400">시간 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Action Controls -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative">
+          <input
+            id="wikiSearchInput"
+            type="text"
+            placeholder="위키 문서 빠른 검색..."
+            class="w-44 sm:w-56 bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <button
+          id="btnNewDoc"
+          type="button"
+          class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs sm:text-sm font-medium text-slate-200 transition flex items-center gap-1.5"
+        >
+          <span>+ 새 문서</span>
+        </button>
+
+        <button
+          id="btnSyncGithub"
+          type="button"
+          class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs sm:text-sm font-medium text-blue-300 transition flex items-center gap-1.5"
+        >
+          <span>GitHub 동기화</span>
+        </button>
+
+        <button
+          id="btnDownloadHtmlFile"
+          type="button"
+          class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs sm:text-sm font-semibold text-white shadow transition flex items-center gap-1.5"
+        >
+          <span>index.html 내려받기</span>
+        </button>
+
+        <button
+          id="btnOpenSettings"
+          type="button"
+          class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs sm:text-sm font-semibold text-white shadow transition flex items-center gap-1.5"
+        >
+          <span>AI · GitHub 설정</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Banner -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 hidden">
+    <div id="toastBox" class="px-4 py-3 rounded-2xl bg-slate-800 border border-slate-600 shadow-2xl text-sm text-slate-100 flex items-center gap-2.5">
+      <span id="toastMessage">알림</span>
+    </div>
+  </div>
+
+  <!-- Main Tablet Dashboard Grid -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+    <!-- Left & Center Column: Family Pin Board + Markdown Wiki Viewer (7 cols on lg) -->
+    <section class="lg:col-span-7 flex flex-col gap-4">
+
+      <!-- Family Notice & Checklist Bar -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Quick Today Checklist Card -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+              오늘의 가족 체크리스트
+            </h2>
+            <span id="todoProgressText" class="text-xs text-slate-400">0/0 완료</span>
+          </div>
+          <div id="todoListContainer" class="space-y-1.5 max-h-28 overflow-y-auto custom-scroll pr-1"></div>
+          <form id="todoAddForm" class="mt-2.5 flex gap-1.5">
+            <input
+              id="todoNewInput"
+              type="text"
+              placeholder="새 가족 할 일 입력..."
+              class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-medium text-blue-300"
+            >
+              추가
+            </button>
+          </form>
+        </div>
+
+        <!-- Quick Appliance & Home Pin Card -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+              거실 빠른 안내 보드
+            </h2>
+            <span class="text-xs text-slate-400">터치 시 질문 전송</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              data-quick-ask="어르신용 인덕션이랑 광파오븐 잠금 풀고 데우는 법 쉽게 알려줘"
+              class="quick-ask-btn text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 transition"
+            >
+              <div class="text-xs font-semibold text-blue-300">인덕션·오븐 조작법</div>
+              <div class="text-[11px] text-slate-400 mt-0.5 truncate">잠금 해제 및 데우기 순서</div>
+            </button>
+            <button
+              type="button"
+              data-quick-ask="아이스하키 연습 갈 때 챙겨야 할 장비랑 주간 일정 알려줘"
+              class="quick-ask-btn text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 transition"
+            >
+              <div class="text-xs font-semibold text-emerald-300">하키 장비·학원 일정</div>
+              <div class="text-[11px] text-slate-400 mt-0.5 truncate">CF80 헬멧·바이저·보호대</div>
+            </button>
+            <button
+              type="button"
+              data-quick-ask="카니발 타이어 공기압 기준이랑 휴대용 에어펌프 사용법 알려줘"
+              class="quick-ask-btn text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 transition"
+            >
+              <div class="text-xs font-semibold text-amber-300">카니발 차량 관리</div>
+              <div class="text-[11px] text-slate-400 mt-0.5 truncate">공기압 35~36psi·충전기</div>
+            </button>
+            <button
+              type="button"
+              data-quick-ask="삭힌 고추 없을 때 동치미 담그는 대체 레시피 비율 알려줘"
+              class="quick-ask-btn text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 transition"
+            >
+              <div class="text-xs font-semibold text-rose-300">우리집 요리 레시피</div>
+              <div class="text-[11px] text-slate-400 mt-0.5 truncate">동치미·토마토 계란 우육면</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Markdown Wiki Folder & Document Viewer -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex-1 flex flex-col min-h-[420px]">
+        <!-- Category Filter Tabs & File Import/Export -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div id="categoryTabsContainer" class="flex flex-wrap gap-1.5">
+            <button type="button" data-cat="all" class="cat-tab px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white">전체 문서</button>
+            <button type="button" data-cat="가전·집관리" class="cat-tab px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">가전·집관리</button>
+            <button type="button" data-cat="아이·일정" class="cat-tab px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">아이·일정</button>
+            <button type="button" data-cat="차량·정비" class="cat-tab px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">차량·정비</button>
+            <button type="button" data-cat="요리·레시피" class="cat-tab px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">요리·레시피</button>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <label for="fileImportInput" class="cursor-pointer px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300">
+              .md 파일 불러오기
+            </label>
+            <input id="fileImportInput" type="file" accept=".md,.txt,.json" class="hidden" />
+            <button
+              id="btnExportMd"
+              type="button"
+              class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300"
+            >
+              현재 .md 저장
+            </button>
+          </div>
+        </div>
+
+        <!-- Split View: Document List (Left) & Active Markdown Document (Right) -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-3 flex-1">
+          <!-- Document Cards List -->
+          <div id="docListSidebar" class="sm:col-span-4 space-y-2 max-h-[380px] overflow-y-auto custom-scroll pr-1"></div>
+
+          <!-- Active Document Content / Editor -->
+          <div class="sm:col-span-8 bg-slate-950/70 border border-slate-800/90 rounded-xl p-3.5 flex flex-col justify-between">
+            <div>
+              <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-3 border-b border-slate-800">
+                <div>
+                  <span id="activeDocFilename" class="text-[11px] font-mono text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">appliances.md</span>
+                  <span id="activeDocUpdated" class="text-[11px] text-slate-400 ml-2">최근 수정: 방금 전</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    id="btnAskCurrentDoc"
+                    type="button"
+                    class="px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-xs text-blue-300 font-medium"
+                  >
+                    이 문서 AI 요약
+                  </button>
+                  <button
+                    id="btnToggleEditDoc"
+                    type="button"
+                    class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 font-medium"
+                  >
+                    문서 편집
+                  </button>
+                </div>
+              </div>
+
+              <!-- Rendered Markdown View -->
+              <div id="docRenderedView" class="markdown-body max-h-[300px] overflow-y-auto custom-scroll pr-1"></div>
+
+              <!-- Markdown Editor View (Hidden by default) -->
+              <div id="docEditorView" class="hidden space-y-2.5">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    id="editDocTitle"
+                    type="text"
+                    placeholder="문서 제목"
+                    class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100"
+                  />
+                  <input
+                    id="editDocFilename"
+                    type="text"
+                    placeholder="파일명 (예: memo.md)"
+                    class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-blue-300"
+                  />
+                  <select
+                    id="editDocCategory"
+                    class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100"
+                  >
+                    <option value="가전·집관리">가전·집관리</option>
+                    <option value="아이·일정">아이·일정</option>
+                    <option value="차량·정비">차량·정비</option>
+                    <option value="요리·레시피">요리·레시피</option>
+                  </select>
+                </div>
+                <textarea
+                  id="editDocContent"
+                  rows="9"
+                  class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-100 leading-relaxed focus:outline-none focus:border-blue-500"
+                ></textarea>
+                <div class="flex justify-end gap-2">
+                  <button
+                    id="btnDeleteDoc"
+                    type="button"
+                    class="px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/70 border border-rose-700/50 text-xs text-rose-300 mr-auto"
+                  >
+                    삭제
+                  </button>
+                  <button
+                    id="btnCancelEditDoc"
+                    type="button"
+                    class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300"
+                  >
+                    취소
+                  </button>
+                  <button
+                    id="btnSaveEditDoc"
+                    type="button"
+                    class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white"
+                  >
+                    저장하기
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: AI Family Wiki Chat Assistant (5 cols on lg) -->
+    <section class="lg:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col h-[580px] lg:h-auto">
+      <!-- Chat Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <span>우리집 AI 위키 비서</span>
+          </h2>
+          <p id="chatSubtleStatus" class="text-xs text-slate-400 mt-0.5">
+            위키 문서 4개를 학습해 바로 답변할 준비가 되었습니다.
+          </p>
+        </div>
+        <button
+          id="btnClearChat"
+          type="button"
+          class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300"
+        >
+          대화 지우기
+        </button>
+      </div>
+
+      <!-- Chat Messages Stream -->
+      <div id="chatMessagesBox" class="flex-1 overflow-y-auto custom-scroll py-3 space-y-3 pr-1"></div>
+
+      <!-- Suggested Chips -->
+      <div class="py-2 flex items-center gap-1.5 overflow-x-auto custom-scroll">
+        <button type="button" data-quick-ask="인덕션 터보 화력이랑 잠금 푸는 법 알려줘" class="quick-ask-btn shrink-0 px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300">
+          인덕션 잠금 해제
+        </button>
+        <button type="button" data-quick-ask="이번 주 아이스하키 일정이랑 챙길 보호대 목록" class="quick-ask-btn shrink-0 px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300">
+          하키 일정·장비
+        </button>
+        <button type="button" data-quick-ask="거실 인터폰 화면이 재부팅될 때 대처법이 뭐야?" class="quick-ask-btn shrink-0 px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300">
+          인터폰 점검 메모
+        </button>
+      </div>
+
+      <!-- Chat Input Form -->
+      <form id="chatInputForm" class="mt-1 flex gap-2">
+        <input
+          id="chatUserInput"
+          type="text"
+          placeholder="가족 위키에 대해 무엇이든 물어보세요..."
+          class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+        />
+        <button
+          id="btnSendChat"
+          type="submit"
+          class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold text-white shadow transition shrink-0"
+        >
+          질문
+        </button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Settings Modal (Gemini API / Local Ollama / GitHub Repo Config) -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-5 shadow-2xl max-h-[90vh] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h3 class="text-base font-bold text-white">AI 엔진 및 GitHub 위키 연동 설정</h3>
+          <p class="text-xs text-slate-400 mt-0.5">입력한 키와 주소는 외부에 공개되지 않고 이 태블릿 브라우저 내부에만 안전하게 저장됩니다.</p>
+        </div>
+        <button id="btnCloseSettingsTop" type="button" class="text-slate-400 hover:text-white text-sm px-2 py-1">닫기</button>
+      </div>
+
+      <div class="space-y-4 py-4">
+        <!-- AI Provider Selection -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-2">1. 사용할 AI 두뇌 선택</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              data-provider="gemini"
+              class="provider-select-btn p-2.5 rounded-xl border text-left transition"
+            >
+              <div class="text-xs font-bold text-blue-300">Gemini API (추천)</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">켜둘 PC 불필요 · 무료 등급</div>
+            </button>
+            <button
+              type="button"
+              data-provider="ollama"
+              class="provider-select-btn p-2.5 rounded-xl border text-left transition"
+            >
+              <div class="text-xs font-bold text-emerald-300">로컬 Ollama</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">집 안 PC AI 서버 연동</div>
+            </button>
+            <button
+              type="button"
+              data-provider="local_rag"
+              class="provider-select-btn p-2.5 rounded-xl border text-left transition"
+            >
+              <div class="text-xs font-bold text-amber-300">내장 위키 검색</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">API 없이 즉시 문서 검색</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Gemini Config Box -->
+        <div id="geminiConfigSection" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-blue-300">Google AI Studio (Gemini API) 설정</span>
+            <span class="text-[11px] text-slate-400">aistudio.google.com 에서 무료 발급</span>
+          </div>
+          <div>
+            <label for="inputGeminiKey" class="block text-xs text-slate-400 mb-1">Gemini API Key</label>
+            <input
+              id="inputGeminiKey"
+              type="password"
+              placeholder="AIzaSy... 로 시작하는 API 키 입력"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label for="selectGeminiModel" class="block text-xs text-slate-400 mb-1">Gemini 모델 선택</label>
+            <select
+              id="selectGeminiModel"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+            >
+              <option value="gemini-2.5-flash">gemini-2.5-flash (빠르고 정확한 한국어 · 추천)</option>
+              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (무료 호출 한도 최대)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro (고성능 추론)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Ollama Config Box -->
+        <div id="ollamaConfigSection" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-300">홈 PC 로컬 Ollama 연동 설정</span>
+            <span class="text-[11px] text-slate-400">PC에 OLLAMA_ORIGINS=* 설정 필수</span>
+          </div>
+          <div>
+            <label for="inputOllamaUrl" class="block text-xs text-slate-400 mb-1">Ollama 서버 주소 (포트 11434 또는 터널 도메인)</label>
+            <input
+              id="inputOllamaUrl"
+              type="text"
+              placeholder="예: 홈 PC 내부 IP 또는 터널 주소 (:11434)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label for="inputOllamaModel" class="block text-xs text-slate-400 mb-1">실행할 로컬 모델 이름</label>
+            <input
+              id="inputOllamaModel"
+              type="text"
+              value="qwen2.5:7b"
+              placeholder="qwen2.5:7b"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+        </div>
+
+        <!-- GitHub Repository Markdown Sync Config -->
+        <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-200">2. GitHub 저장소 위키 문서(.md) 자동 동기화 (선택)</span>
+            <span class="text-[11px] text-slate-400">저장소의 .md 파일을 읽어옵니다</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label for="inputGithubRepo" class="block text-xs text-slate-400 mb-1">GitHub 계정/저장소 이름</label>
+              <input
+                id="inputGithubRepo"
+                type="text"
+                placeholder="예: myfamily/home-wiki"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+              />
+            </div>
+            <div>
+              <label for="inputGithubPath" class="block text-xs text-slate-400 mb-1">문서 폴더 경로 (루트면 비워둠)</label>
+              <input
+                id="inputGithubPath"
+                type="text"
+                placeholder="예: wiki (또는 빈칸)"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+              />
+            </div>
+          </div>
+          <div>
+            <label for="inputGithubToken" class="block text-xs text-slate-400 mb-1">비공개(Private) 저장소용 토큰 (Public 저장소는 비워두세요)</label>
+            <input
+              id="inputGithubToken"
+              type="password"
+              placeholder="ghp_... 또는 github_pat_... (선택 사항)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <button
+          id="btnResetDefaultData"
+          type="button"
+          class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300"
+        >
+          기본 샘플 문서 복원
+        </button>
+        <div class="flex gap-2">
+          <button
+            id="btnCloseSettingsBottom"
+            type="button"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300"
+          >
+            취소
+          </button>
+          <button
+            id="btnSaveSettings"
+            type="button"
+            class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white"
+          >
+            설정 저장 및 적용
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Initial Family Wiki Markdown Documents ---
+    const DEFAULT_DOCS = [
+      {
+        id: 'doc_appliances',
+        filename: 'appliances.md',
+        title: '어르신용 인덕션 · 광파오븐 간단 사용법',
+        category: '가전·집관리',
+        updatedAt: '2026-11-15',
+        content: `# 어르신용 인덕션 · 광파오븐 간단 사용법
+
+## 1. LG 디오스 인덕션 조작 순서
+- **전원 켜기**: 냄비를 화구 중앙에 올린 뒤 오른쪽 아래 [전원] 버튼을 1초간 누릅니다.
+- **잠금(어린이 보호) 해제**: 화면에 [L] 또는 자물쇠 표시가 뜨면 [잠금] 버튼을 3초간 길게 눌러 해제합니다.
+- **화력 조절**: 화구 선택 후 숫자를 [1~9] 사이로 누릅니다. 국·찌개 보온은 [2~3], 일반 끓이기는 [6~7], 빠른 물 끓이기는 [터보(Boost)]를 누릅니다.
+- **주의 사항**: 사용 직후 상판 유리가 뜨거우니 [H] 표시가 꺼질 때까지 손대지 마세요.
+
+## 2. 광파오븐 (MLJ32/39 시리즈) 간편 데우기
+- **전자레인지 데우기**: 음식을 넣고 다이얼을 돌려 [레인지] 선택 -> 시간을 1분 30초로 맞춘 뒤 [시작] 버튼을 누릅니다.
+- **냉동밥/국 해동**: 스테인리스 그릇이나 알루미늄 호일은 절대 넣지 마시고, 도자기·내열유리 용기만 사용하세요.`
+      },
+      {
+        id: 'doc_hockey',
+        filename: 'hockey_schedule.md',
+        title: '아이스하키 준비물 및 주간 학원 일정',
+        category: '아이·일정',
+        updatedAt: '2026-11-15',
+        content: `# 주간 학원 시간표 및 아이스하키 장비 체크리스트
+
+## 1. 요일별 주요 일정
+- **화요일 · 목요일 (오후 4:30 ~ 6:00)**: 유소년 아이스하키 링크장 정기 훈련 (출발 40분 전 장비 가방 탑승)
+- **토요일 (오전 10:00 ~ 12:00)**: 주말 하키 연습 경기 및 스케이팅 집중 레슨
+- **월요일 · 수요일 · 금요일**: 방과 후 교실 및 독서·수학 숙제 점검
+
+## 2. 아이스하키 장비 가방 필수 체크리스트
+- **머리 보호**: Warrior Covert CF80 헬멧 + Oakley Aviator 바이저 (출발 전 김서림 방지 스프레이 닦기)
+- **상·하체 보호대**: 숄더 패드, 엘보 패드(팔꿈치), 하키 팬츠, 정강이 보호대(신가드), 넥가드(목 보호대 필수!)
+- **기타 필수품**: 스케이트 날집 제거 확인, 마우스피스, 하키 스틱 2자루, 개인 물통 및 여벌 기능성 이너웨어`
+      },
+      {
+        id: 'doc_carnival',
+        filename: 'carnival_home.md',
+        title: '4세대 카니발 차량 관리 및 우리집 설비 메모',
+        category: '차량·정비',
+        updatedAt: '2026-11-15',
+        content: `# 4세대 카니발 차량 및 우리집 설비 관리 메모
+
+## 1. 4세대 카니발 차량 점검 기준
+- **타이어 적정 공기압**: 냉간 기준 **35 ~ 36 psi** 유지 (겨울철 기온 하강 시 트렁크의 휴대용 에어펌프로 36 psi 보충)
+- **차량 내 고속 충전**: 기본 USB 포트보다 1열/2열 시거잭 PD 고속충전 어댑터(100W 지원)를 사용해야 태블릿·휴대폰이 빠르게 충전됩니다.
+- **지하주차장 위치 메모**: 주로 B2층 엘리베이터 홀 인근 기둥 번호 확인
+
+## 2. 우리집 월패드(인터폰) 및 전기 메모
+- **거실 인터폰 재부팅 증상 시**: 로비/현관 호출 시 화면이 깜빡이거나 재부팅되면 내부 SMPS 전원부 노후 가능성이 높으므로 관리사무소 경유 공식 AS 점검 요청.
+- **현관 일괄소등 스위치**: 외출 시 일괄소등 버튼만 누르고 가스 차단기는 별도 확인.`
+      },
+      {
+        id: 'doc_recipes',
+        filename: 'recipes.md',
+        title: '우리집 단골 요리 레시피 (동치미 · 우육면)',
+        category: '요리·레시피',
+        updatedAt: '2026-11-15',
+        content: `# 우리집 단골 요리 레시피 모음
+
+## 1. 삭힌 고추 없이 시원하게 담그는 동치미
+- **대체 재료 비법**: 삭힌 고추가 없을 때는 **신선한 청양고추(포크로 구멍 2~3개 찌름) + 매실청 2큰술 + 배 1/2개**를 넣으면 톡 쏘는 시원한 맛과 발효 감칠맛이 살아납니다.
+- **절임 비율**: 동치미 무 1단 기준 굵은소금 1컵으로 6시간 절인 뒤, 물 3L에 천일염 3큰술, 다진 마늘·생강 주머니를 넣고 실온 1~2일 숙성 후 김치냉장고 보관.
+
+## 2. 토마토 계란 우육면 (간편 주말 별미)
+- **조리 포인트**: 달걀 2개를 먼저 스크램블해 건져 두고, 잘게 썬 생토마토 1개를 기름에 살짝 볶아 육수를 부으면 국물이 훨씬 진하고 부드러워집니다. 마지막에 볶은 계란과 청경채를 올려 완성합니다.`
+      }
+    ];
+
+    const DEFAULT_TODOS = [
+      { id: 't1', text: '화요일 하키 가방에 넥가드·바이저 클리너 챙기기', done: false },
+      { id: 't2', text: '카니발 타이어 공기압 36 psi 휴대용 펌프로 점검', done: true },
+      { id: 't3', text: '어르신 오실 때 인덕션 잠금 해제 방법 안내', done: false }
+    ];
+
+    // --- Application State ---
+    let state = {
+      docs: [],
+      todos: [],
+      activeDocId: 'doc_appliances',
+      activeCategory: 'all',
+      searchQuery: '',
+      isEditingDoc: false,
+      chatMessages: [
+        {
+          role: 'assistant',
+          text: '안녕하세요! 우리집 AI 위키 비서입니다. 왼쪽의 마크다운(.md) 문서들을 바탕으로 가전 사용법, 아이스하키 준비물, 차량 공기압, 요리 레시피 등 무엇이든 물어보시면 바로 찾아드릴게요.',
+          source: '시스템 안내'
+        }
+      ],
+      settings: {
+        provider: 'gemini',
+        geminiKey: '',
+        geminiModel: 'gemini-2.5-flash',
+        ollamaUrl: '',
+        ollamaModel: 'qwen2.5:7b',
+        githubRepo: '',
+        githubPath: '',
+        githubToken: ''
+      }
+    };
+
+    // --- Safe Storage Helpers ---
+    function loadStateFromStorage() {
+      try {
+        const savedDocs = localStorage.getItem('family_wiki_docs_v1');
+        const savedTodos = localStorage.getItem('family_wiki_todos_v1');
+        const savedSettings = localStorage.getItem('family_wiki_settings_v1');
+
+        state.docs = savedDocs ? JSON.parse(savedDocs) : JSON.parse(JSON.stringify(DEFAULT_DOCS));
+        state.todos = savedTodos ? JSON.parse(savedTodos) : JSON.parse(JSON.stringify(DEFAULT_TODOS));
+        if (savedSettings) {
+          state.settings = Object.assign({}, state.settings, JSON.parse(savedSettings));
+        }
+        if (!state.docs.length) {
+          state.docs = JSON.parse(JSON.stringify(DEFAULT_DOCS));
+        }
+        state.activeDocId = state.docs[0].id;
+      } catch (e) {
+        state.docs = JSON.parse(JSON.stringify(DEFAULT_DOCS));
+        state.todos = JSON.parse(JSON.stringify(DEFAULT_TODOS));
+      }
+    }
+
+    function saveStateToStorage() {
+      try {
+        localStorage.setItem('family_wiki_docs_v1', JSON.stringify(state.docs));
+        localStorage.setItem('family_wiki_todos_v1', JSON.stringify(state.todos));
+        localStorage.setItem('family_wiki_settings_v1', JSON.stringify(state.settings));
+      } catch (e) {
+        // Ignore storage quota errors in restricted preview
+      }
+    }
+
+    // --- Toast Helper ---
+    let toastTimer = null;
+    function showToast(msg) {
+      const container = document.getElementById('toastContainer');
+      const textEl = document.getElementById('toastMessage');
+      if (!container || !textEl) return;
+      textEl.textContent = msg;
+      container.classList.remove('hidden');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        container.classList.add('hidden');
+      }, 3200);
+    }
+
+    // --- Simple Markdown Renderer ---
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function renderMarkdown(md) {
+      const lines = String(md || '').split('\n');
+      let html = '';
+      let inList = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = escapeHtml(lines[i]);
+        line = line
+          .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        if (line.startsWith('# ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h1>${line.slice(2)}</h1>`;
+        } else if (line.startsWith('## ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h2>${line.slice(3)}</h2>`;
+        } else if (line.startsWith('### ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h3>${line.slice(4)}</h3>`;
+        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+          if (!inList) { html += '<ul>'; inList = true; }
+          html += `<li>${line.slice(2)}</li>`;
+        } else if (line.trim() === '') {
+          if (inList) { html += '</ul>'; inList = false; }
+        } else {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<p>${line}</p>`;
+        }
+      }
+      if (inList) html += '</ul>';
+      return html;
+    }
+
+    // --- Clock Update ---
+    function updateClock() {
+      const el = document.getElementById('liveClockText');
+      if (!el) return;
+      const now = new Date();
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1;
+      const d = now.getDate();
+      const dayName = days[now.getDay()];
+      let hr = now.getHours();
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hr >= 12 ? '오후' : '오전';
+      hr = hr % 12 || 12;
+      el.textContent = `${y}년 ${m}월 ${d}일 (${dayName}) ${ampm} ${hr}:${min}`;
+    }
+
+    // --- Render Header Badge ---
+    function renderEngineBadge() {
+      const badge = document.getElementById('engineStatusBadge');
+      const sub = document.getElementById('chatSubtleStatus');
+      if (!badge || !sub) return;
+
+      if (state.settings.provider === 'gemini' && state.settings.geminiKey.trim()) {
+        badge.textContent = `Gemini (${state.settings.geminiModel}) 연결됨`;
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-medium bg-blue-500/20 text-blue-300 border border-blue-500/40';
+        sub.textContent = `Gemini API가 위키 문서 ${state.docs.length}개를 실시간 참고하여 답변합니다.`;
+      } else if (state.settings.provider === 'ollama' && state.settings.ollamaUrl.trim()) {
+        badge.textContent = `로컬 Ollama (${state.settings.ollamaModel})`;
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        sub.textContent = `홈 PC Ollama 엔진과 위키 문서 ${state.docs.length}개를 연동합니다.`;
+      } else {
+        badge.textContent = 'Gemini 연동 대기 (내장 검색 작동 중)';
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-medium bg-blue-500/20 text-blue-300 border border-blue-500/40';
+        sub.textContent = `Gemini AI 모드가 기본 선택되었습니다 · 설정에서 무료 API 키를 입력하면 즉시 연결됩니다.`;
+      }
+    }
+
+    // --- Render Todo Checklist ---
+    function renderTodos() {
+      const container = document.getElementById('todoListContainer');
+      const progress = document.getElementById('todoProgressText');
+      if (!container || !progress) return;
+
+      const doneCount = state.todos.filter(t => t.done).length;
+      progress.textContent = `${doneCount}/${state.todos.length} 완료`;
+
+      container.innerHTML = state.todos.map(item => `
+        <div class="flex items-center justify-between gap-2 bg-slate-800/60 hover:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700/60">
+          <button type="button" data-todo-toggle="${item.id}" class="flex items-center gap-2 text-left flex-1">
+            <span class="w-4 h-4 rounded flex items-center justify-center border ${item.done ? 'bg-emerald-500 border-emerald-500 text-slate-950 font-bold' : 'border-slate-500'} text-[10px]">
+              ${item.done ? '✓' : ''}
+            </span>
+            <span class="text-xs ${item.done ? 'line-through text-slate-500' : 'text-slate-200'}">${escapeHtml(item.text)}</span>
+          </button>
+          <button type="button" data-todo-del="${item.id}" class="text-slate-500 hover:text-rose-400 text-xs px-1">✕</button>
+        </div>
+      `).join('');
+    }
+
+    // --- Render Wiki Documents Sidebar & Active Viewer ---
+    function getFilteredDocs() {
+      return state.docs.filter(doc => {
+        const matchCat = state.activeCategory === 'all' || doc.category === state.activeCategory;
+        const q = state.searchQuery.trim().toLowerCase();
+        const matchSearch = !q ||
+          doc.title.toLowerCase().includes(q) ||
+          doc.filename.toLowerCase().includes(q) ||
+          doc.content.toLowerCase().includes(q);
+        return matchCat && matchSearch;
+      });
+    }
+
+    function renderWikiSection() {
+      const sidebar = document.getElementById('docListSidebar');
+      const filtered = getFilteredDocs();
+
+      // Update category tab styles
+      document.querySelectorAll('.cat-tab').forEach(btn => {
+        const cat = btn.getAttribute('data-cat');
+        if (cat === state.activeCategory) {
+          btn.className = 'cat-tab px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white';
+        } else {
+          btn.className = 'cat-tab px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700';
+        }
+      });
+
+      if (!filtered.length) {
+        sidebar.innerHTML = `<div class="p-4 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">조건에 맞는 위키 문서가 없습니다.</div>`;
+      } else {
+        if (!filtered.some(d => d.id === state.activeDocId)) {
+          state.activeDocId = filtered[0].id;
+        }
+        sidebar.innerHTML = filtered.map(doc => {
+          const isActive = doc.id === state.activeDocId;
+          return `
+            <button
+              type="button"
+              data-doc-id="${doc.id}"
+              class="w-full text-left p-3 rounded-xl border transition ${
+                isActive
+                  ? 'bg-blue-600/20 border-blue-500/60 shadow'
+                  : 'bg-slate-950/60 hover:bg-slate-800/70 border-slate-800'
+              }"
+            >
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">${escapeHtml(doc.category)}</span>
+                <span class="text-[10px] font-mono text-slate-400">${escapeHtml(doc.filename)}</span>
+              </div>
+              <div class="text-xs sm:text-sm font-semibold ${isActive ? 'text-white' : 'text-slate-200'} line-clamp-1">${escapeHtml(doc.title)}</div>
+            </button>
+          `;
+        }).join('');
+      }
+
+      const activeDoc = state.docs.find(d => d.id === state.activeDocId) || state.docs[0];
+      if (!activeDoc) return;
+
+      document.getElementById('activeDocFilename').textContent = activeDoc.filename;
+      document.getElementById('activeDocUpdated').textContent = `수정일: ${activeDoc.updatedAt}`;
+
+      const renderedView = document.getElementById('docRenderedView');
+      const editorView = document.getElementById('docEditorView');
+      const toggleBtn = document.getElementById('btnToggleEditDoc');
+
+      if (state.isEditingDoc) {
+        renderedView.classList.add('hidden');
+        editorView.classList.remove('hidden');
+        toggleBtn.textContent = '보기 모드로';
+        document.getElementById('editDocTitle').value = activeDoc.title;
+        document.getElementById('editDocFilename').value = activeDoc.filename;
+        document.getElementById('editDocCategory').value = activeDoc.category;
+        document.getElementById('editDocContent').value = activeDoc.content;
+      } else {
+        renderedView.classList.remove('hidden');
+        editorView.classList.add('hidden');
+        toggleBtn.textContent = '문서 편집';
+        renderedView.innerHTML = renderMarkdown(activeDoc.content);
+      }
+    }
+
+    // --- Render Chat Messages ---
+    function renderChat() {
+      const box = document.getElementById('chatMessagesBox');
+      if (!box) return;
+
+      box.innerHTML = state.chatMessages.map(msg => {
+        if (msg.role === 'user') {
+          return `
+            <div class="flex justify-end">
+              <div class="max-w-[85%] bg-blue-600 text-white rounded-2xl rounded-br-sm px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed shadow">
+                ${escapeHtml(msg.text)}
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="flex justify-start">
+              <div class="max-w-[92%] bg-slate-800/90 border border-slate-700/80 text-slate-100 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed shadow">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <span class="text-[11px] font-semibold text-blue-300">AI 위키 답변</span>
+                  ${msg.source ? `<span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">${escapeHtml(msg.source)}</span>` : ''}
+                </div>
+                <div class="markdown-body text-xs sm:text-sm">${renderMarkdown(msg.text)}</div>
+              </div>
+            </div>
+          `;
+        }
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // --- Built-in Local Smart Wiki RAG Search (Zero-API Fallback) ---
+    function searchLocalWikiAnswer(question) {
+      const q = question.toLowerCase();
+      const keywords = q
+        .replace(/[?.,!]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length >= 2);
+
+      let scored = state.docs.map(doc => {
+        let score = 0;
+        const hay = (doc.title + ' ' + doc.category + ' ' + doc.content).toLowerCase();
+        keywords.forEach(kw => {
+          if (hay.includes(kw)) score += 3;
+        });
+        if (q.includes('인덕션') || q.includes('오븐') || q.includes('잠금') || q.includes('어르신')) {
+          if (doc.id === 'doc_appliances') score += 5;
+        }
+        if (q.includes('하키') || q.includes('장비') || q.includes('일정') || q.includes('학원') || q.includes('헬멧')) {
+          if (doc.id === 'doc_hockey') score += 5;
+        }
+        if (q.includes('카니발') || q.includes('공기압') || q.includes('타이어') || q.includes('인터폰') || q.includes('월패드')) {
+          if (doc.id === 'doc_carnival') score += 5;
+        }
+        if (q.includes('동치미') || q.includes('고추') || q.includes('레시피') || q.includes('우육면') || q.includes('요리')) {
+          if (doc.id === 'doc_recipes') score += 5;
+        }
+        return { doc, score };
+      }).sort((a, b) => b.score - a.score);
+
+      const best = scored[0] && scored[0].score > 0 ? scored[0].doc : state.docs.find(d => d.id === state.activeDocId) || state.docs[0];
+      const lines = best.content.split('\n').filter(l => l.trim() && !l.startsWith('# '));
+      const matchedLines = lines.filter(l => keywords.some(kw => l.toLowerCase().includes(kw)));
+      const excerpt = (matchedLines.length >= 2 ? matchedLines.slice(0, 6) : lines.slice(0, 6)).join('\n');
+
+      return {
+        text: `**${best.title}** 문서에서 관련 내용을 찾았습니다:\n\n${excerpt}\n\n*(설정에서 Gemini API 키나 Ollama를 연결하면 여러 문서를 종합한 자연어 대화가 가능합니다.)*`,
+        source: `내장 검색 · ${best.filename}`
+      };
+    }
+
+    // --- Ask AI Handler (Gemini API / Ollama API / Fallback) ---
+    async function askFamilyWikiAI(question) {
+      const q = String(question || '').trim();
+      if (!q) return;
+
+      state.chatMessages.push({ role: 'user', text: q });
+      state.chatMessages.push({ role: 'assistant', text: '가족 위키 문서를 확인하고 있습니다...', source: '검색 중' });
+      renderChat();
+
+      const wikiContext = state.docs.map(d => `[파일명: ${d.filename} | 제목: ${d.title}]\n${d.content}`).join('\n\n---\n\n');
+      const systemInstruction = `당신은 거실 태블릿에서 동작하는 '우리집 AI 위키 비서'입니다. 아래에 제공된 우리 가족의 마크다운(.md) 위키 문서 내용을 최우선 근거로 삼아 친절하고 간결하게 한국어로 답변하세요. 어르신이나 아이도 읽기 쉽게 핵심만 요약해 주세요.\n\n[우리집 위키 문서 전체 내용]\n${wikiContext}`;
+
+      const provider = state.settings.provider;
+
+      // 1. Gemini API Mode
+      if (provider === 'gemini' && state.settings.geminiKey.trim()) {
+        try {
+          const model = state.settings.geminiModel || 'gemini-2.5-flash';
+          const apiKey = encodeURIComponent(state.settings.geminiKey.trim());
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+          const resp = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: `${systemInstruction}\n\n[가족 구성원의 질문]\n${q}` }]
+                }
+              ]
+            })
+          });
+
+          if (!resp.ok) {
+            throw new Error(`Gemini API 응답 오류 (${resp.status})`);
+          }
+          const data = await resp.json();
+          const answerText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!answerText) throw new Error('응답 텍스트가 비어 있습니다.');
+
+          state.chatMessages.pop();
+          state.chatMessages.push({
+            role: 'assistant',
+            text: answerText,
+            source: `Gemini (${model})`
+          });
+          renderChat();
+          return;
+        } catch (err) {
+          const fallback = searchLocalWikiAnswer(q);
+          state.chatMessages.pop();
+          state.chatMessages.push({
+            role: 'assistant',
+            text: `${fallback.text}\n\n*(참고: Gemini API 호출 중 오류가 발생해 내장 위키 검색으로 답변했습니다. API 키를 확인해 주세요.)*`,
+            source: fallback.source
+          });
+          renderChat();
+          return;
+        }
+      }
+
+      // 2. Local Ollama Mode
+      if (provider === 'ollama' && state.settings.ollamaUrl.trim()) {
+        try {
+          const cleanHost = state.settings.ollamaUrl.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+          const ollamaEndpoint = `https://${cleanHost}/api/chat`;
+          const resp = await fetch(ollamaEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: state.settings.ollamaModel || 'qwen2.5:7b',
+              stream: false,
+              messages: [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content: q }
+              ]
+            })
+          });
+          if (!resp.ok) throw new Error(`Ollama 응답 오류 (${resp.status})`);
+          const data = await resp.json();
+          const answerText = data?.message?.content || data?.response;
+          if (!answerText) throw new Error('빈 응답');
+
+          state.chatMessages.pop();
+          state.chatMessages.push({
+            role: 'assistant',
+            text: answerText,
+            source: `Ollama (${state.settings.ollamaModel})`
+          });
+          renderChat();
+          return;
+        } catch (err) {
+          const fallback = searchLocalWikiAnswer(q);
+          state.chatMessages.pop();
+          state.chatMessages.push({
+            role: 'assistant',
+            text: `${fallback.text}\n\n*(참고: 현재 미리보기 환경에서는 홈 PC의 사설 서버에 직접 연결할 수 없어 내장 위키 검색으로 즉시 답변했습니다.)*`,
+            source: fallback.source
+          });
+          renderChat();
+          return;
+        }
+      }
+
+      // 3. Default Built-in Smart Wiki Search
+      const result = searchLocalWikiAnswer(q);
+      state.chatMessages.pop();
+      state.chatMessages.push({
+        role: 'assistant',
+        text: result.text,
+        source: result.source
+      });
+      renderChat();
+    }
+
+    // --- GitHub Repository Sync (.md files via GitHub REST API) ---
+    async function syncDocsFromGithub() {
+      const repo = state.settings.githubRepo.trim();
+      if (!repo || !repo.includes('/')) {
+        openSettingsModal();
+        showToast('설정에서 GitHub 계정/저장소 이름(예: id/repo)을 먼저 입력해 주세요.');
+        return;
+      }
+
+      const path = state.settings.githubPath.trim().replace(/^\/+|\/+$/g, '');
+      const apiUrl = path
+        ? `https://api.github.com/repos/${repo}/contents/${path}`
+        : `https://api.github.com/repos/${repo}/contents`;
+
+      const headers = { 'Accept': 'application/vnd.github.v3+json' };
+      if (state.settings.githubToken.trim()) {
+        headers['Authorization'] = `Bearer ${state.settings.githubToken.trim()}`;
+      }
+
+      showToast('GitHub 저장소에서 마크다운(.md) 문서를 확인하는 중...');
+      try {
+        const res = await fetch(apiUrl, { headers });
+        if (!res.ok) throw new Error(`GitHub API 상태 코드 ${res.status}`);
+        const items = await res.json();
+        if (!Array.isArray(items)) throw new Error('폴더 목록 형식이 아닙니다.');
+
+        const mdFiles = items.filter(item => item.type === 'file' && item.name.endsWith('.md'));
+        if (!mdFiles.length) {
+          showToast('해당 GitHub 경로에 .md 파일이 없습니다.');
+          return;
+        }
+
+        const fetchedDocs = [];
+        for (const file of mdFiles.slice(0, 12)) {
+          if (!file.download_url || !file.download_url.startsWith('https://')) continue;
+          const rawUrl = file.download_url;
+          const rawRes = await fetch(rawUrl);
+          if (!rawRes.ok) continue;
+          const text = await rawRes.text();
+          const firstHeading = (text.match(/^#\s+(.+)$/m) || [])[1] || file.name.replace(/\.md$/i, '');
+          fetchedDocs.push({
+            id: 'gh_' + file.name,
+            filename: file.name,
+            title: firstHeading.trim(),
+            category: '가전·집관리',
+            updatedAt: new Date().toISOString().slice(0, 10),
+            content: text
+          });
+        }
+
+        if (fetchedDocs.length) {
+          state.docs = fetchedDocs;
+          state.activeDocId = fetchedDocs[0].id;
+          saveStateToStorage();
+          renderWikiSection();
+          renderEngineBadge();
+          showToast(`GitHub에서 마크다운 문서 ${fetchedDocs.length}개를 성공적으로 불러왔습니다!`);
+        }
+      } catch (e) {
+        showToast('GitHub 저장소에 연결하지 못했습니다. 저장소 이름이나 공개 여부를 확인해 주세요.');
+      }
+    }
+
+    // --- Settings Modal Controls ---
+    function updateSettingsModalProviderUI(provider) {
+      state.settings.provider = provider;
+      document.querySelectorAll('.provider-select-btn').forEach(btn => {
+        const p = btn.getAttribute('data-provider');
+        if (p === provider) {
+          btn.className = 'provider-select-btn p-2.5 rounded-xl border border-blue-500 bg-blue-600/20 text-left transition';
+        } else {
+          btn.className = 'provider-select-btn p-2.5 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800 text-left transition';
+        }
+      });
+
+      const geminiBox = document.getElementById('geminiConfigSection');
+      const ollamaBox = document.getElementById('ollamaConfigSection');
+      if (provider === 'gemini') {
+        geminiBox.classList.remove('hidden');
+        ollamaBox.classList.add('hidden');
+      } else if (provider === 'ollama') {
+        geminiBox.classList.add('hidden');
+        ollamaBox.classList.remove('hidden');
+      } else {
+        geminiBox.classList.add('hidden');
+        ollamaBox.classList.add('hidden');
+      }
+    }
+
+    function openSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      if (!modal) return;
+      document.getElementById('inputGeminiKey').value = state.settings.geminiKey || '';
+      document.getElementById('selectGeminiModel').value = state.settings.geminiModel || 'gemini-2.5-flash';
+      document.getElementById('inputOllamaUrl').value = state.settings.ollamaUrl || '';
+      document.getElementById('inputOllamaModel').value = state.settings.ollamaModel || 'qwen2.5:7b';
+      document.getElementById('inputGithubRepo').value = state.settings.githubRepo || '';
+      document.getElementById('inputGithubPath').value = state.settings.githubPath || '';
+      document.getElementById('inputGithubToken').value = state.settings.githubToken || '';
+      updateSettingsModalProviderUI(state.settings.provider || 'gemini');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // --- Event Listeners Binding ---
+    function bindEvents() {
+      // Search input
+      document.getElementById('wikiSearchInput').addEventListener('input', e => {
+        state.searchQuery = e.target.value;
+        renderWikiSection();
+      });
+
+      // Category tabs
+      document.getElementById('categoryTabsContainer').addEventListener('click', e => {
+        const btn = e.target.closest('.cat-tab');
+        if (!btn) return;
+        state.activeCategory = btn.getAttribute('data-cat');
+        state.isEditingDoc = false;
+        renderWikiSection();
+      });
+
+      // Document sidebar selection
+      document.getElementById('docListSidebar').addEventListener('click', e => {
+        const btn = e.target.closest('[data-doc-id]');
+        if (!btn) return;
+        state.activeDocId = btn.getAttribute('data-doc-id');
+        state.isEditingDoc = false;
+        renderWikiSection();
+      });
+
+      // Toggle Edit Document
+      document.getElementById('btnToggleEditDoc').addEventListener('click', () => {
+        state.isEditingDoc = !state.isEditingDoc;
+        renderWikiSection();
+      });
+
+      document.getElementById('btnCancelEditDoc').addEventListener('click', () => {
+        state.isEditingDoc = false;
+        renderWikiSection();
+      });
+
+      // Save Edited Document
+      document.getElementById('btnSaveEditDoc').addEventListener('click', () => {
+        const activeDoc = state.docs.find(d => d.id === state.activeDocId);
+        if (!activeDoc) return;
+        const newTitle = document.getElementById('editDocTitle').value.trim() || '제목 없는 문서';
+        let newFilename = document.getElementById('editDocFilename').value.trim() || 'note.md';
+        if (!newFilename.endsWith('.md')) newFilename += '.md';
+
+        activeDoc.title = newTitle;
+        activeDoc.filename = newFilename;
+        activeDoc.category = document.getElementById('editDocCategory').value;
+        activeDoc.content = document.getElementById('editDocContent').value;
+        activeDoc.updatedAt = new Date().toISOString().slice(0, 10);
+
+        state.isEditingDoc = false;
+        saveStateToStorage();
+        renderWikiSection();
+        renderEngineBadge();
+        showToast(`${activeDoc.filename} 문서가 저장되었습니다.`);
+      });
+
+      // Delete Document
+      document.getElementById('btnDeleteDoc').addEventListener('click', () => {
+        if (state.docs.length <= 1) {
+          showToast('최소 1개의 위키 문서는 남겨두어야 합니다.');
+          return;
+        }
+        state.docs = state.docs.filter(d => d.id !== state.activeDocId);
+        state.activeDocId = state.docs[0].id;
+        state.isEditingDoc = false;
+        saveStateToStorage();
+        renderWikiSection();
+        renderEngineBadge();
+        showToast('문서를 삭제했습니다.');
+      });
+
+      // Create New Document
+      document.getElementById('btnNewDoc').addEventListener('click', () => {
+        const newId = 'doc_' + Date.now();
+        const newDoc = {
+          id: newId,
+          filename: `family_note_${state.docs.length + 1}.md`,
+          title: '새 가족 위키 메모',
+          category: state.activeCategory === 'all' ? '가전·집관리' : state.activeCategory,
+          updatedAt: new Date().toISOString().slice(0, 10),
+          content: `# 새 가족 위키 메모\n\n## 핵심 내용\n- 가족과 공유할 사용법이나 일정을 이곳에 적어 주세요.`
+        };
+        state.docs.unshift(newDoc);
+        state.activeDocId = newId;
+        state.isEditingDoc = true;
+        saveStateToStorage();
+        renderWikiSection();
+        renderEngineBadge();
+        showToast('새 마크다운 문서를 만들었습니다. 내용을 수정해 보세요!');
+      });
+
+      // Ask AI to summarize current doc
+      document.getElementById('btnAskCurrentDoc').addEventListener('click', () => {
+        const activeDoc = state.docs.find(d => d.id === state.activeDocId);
+        if (!activeDoc) return;
+        askFamilyWikiAI(`${activeDoc.title} (${activeDoc.filename}) 문서의 핵심 내용만 가족들이 보기 쉽게 3줄로 요약해 줘.`);
+      });
+
+      // Export current .md file
+      document.getElementById('btnExportMd').addEventListener('click', () => {
+        const activeDoc = state.docs.find(d => d.id === state.activeDocId);
+        if (!activeDoc) return;
+        const blob = new Blob([activeDoc.content], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = activeDoc.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast(`${activeDoc.filename} 파일을 다운로드했습니다. GitHub에 그대로 업로드하세요!`);
+      });
+
+      // Import local .md or .json file
+      document.getElementById('fileImportInput').addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const content = String(ev.target.result || '');
+          const firstHeading = (content.match(/^#\s+(.+)$/m) || [])[1] || file.name.replace(/\.[^.]+$/, '');
+          const newDoc = {
+            id: 'import_' + Date.now(),
+            filename: file.name.endsWith('.md') ? file.name : `${file.name}.md`,
+            title: firstHeading.trim(),
+            category: '가전·집관리',
+            updatedAt: new Date().toISOString().slice(0, 10),
+            content: content
+          };
+          state.docs.unshift(newDoc);
+          state.activeDocId = newDoc.id;
+          saveStateToStorage();
+          renderWikiSection();
+          renderEngineBadge();
+          showToast(`${file.name} 문서를 대시보드에 불러왔습니다!`);
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+
+      // Todo list toggle & delete
+      document.getElementById('todoListContainer').addEventListener('click', e => {
+        const toggleBtn = e.target.closest('[data-todo-toggle]');
+        if (toggleBtn) {
+          const id = toggleBtn.getAttribute('data-todo-toggle');
+          const item = state.todos.find(t => t.id === id);
+          if (item) {
+            item.done = !item.done;
+            saveStateToStorage();
+            renderTodos();
+          }
+          return;
+        }
+        const delBtn = e.target.closest('[data-todo-del]');
+        if (delBtn) {
+          const id = delBtn.getAttribute('data-todo-del');
+          state.todos = state.todos.filter(t => t.id !== id);
+          saveStateToStorage();
+          renderTodos();
+        }
+      });
+
+      // Add Todo
+      document.getElementById('todoAddForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const input = document.getElementById('todoNewInput');
+        const text = input.value.trim();
+        if (!text) return;
+        state.todos.push({ id: 'todo_' + Date.now(), text, done: false });
+        input.value = '';
+        saveStateToStorage();
+        renderTodos();
+      });
+
+      // Quick Ask buttons
+      document.querySelectorAll('.quick-ask-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const q = btn.getAttribute('data-quick-ask');
+          if (q) askFamilyWikiAI(q);
+        });
+      });
+
+      // Chat Form Submit
+      document.getElementById('chatInputForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const input = document.getElementById('chatUserInput');
+        const q = input.value.trim();
+        if (!q) return;
+        input.value = '';
+        askFamilyWikiAI(q);
+      });
+
+      // Clear Chat
+      document.getElementById('btnClearChat').addEventListener('click', () => {
+        state.chatMessages = [
+          {
+            role: 'assistant',
+            text: '대화 기록을 비웠습니다. 궁금한 가족 위키 내용을 다시 물어보세요!',
+            source: '시스템 안내'
+          }
+        ];
+        renderChat();
+      });
+
+      // Settings Modal Open/Close
+      document.getElementById('btnOpenSettings').addEventListener('click', openSettingsModal);
+      document.getElementById('btnCloseSettingsTop').addEventListener('click', closeSettingsModal);
+      document.getElementById('btnCloseSettingsBottom').addEventListener('click', closeSettingsModal);
+
+      document.querySelectorAll('.provider-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          updateSettingsModalProviderUI(btn.getAttribute('data-provider'));
+        });
+      });
+
+      // Save Settings
+      document.getElementById('btnSaveSettings').addEventListener('click', () => {
+        state.settings.geminiKey = document.getElementById('inputGeminiKey').value.trim();
+        state.settings.geminiModel = document.getElementById('selectGeminiModel').value;
+        state.settings.ollamaUrl = document.getElementById('inputOllamaUrl').value.trim();
+        state.settings.ollamaModel = document.getElementById('inputOllamaModel').value.trim() || 'qwen2.5:7b';
+        state.settings.githubRepo = document.getElementById('inputGithubRepo').value.trim();
+        state.settings.githubPath = document.getElementById('inputGithubPath').value.trim();
+        state.settings.githubToken = document.getElementById('inputGithubToken').value.trim();
+
+        if (state.settings.provider === 'gemini' && !state.settings.geminiKey) {
+          showToast('Gemini API 키가 비어 있어 내장 위키 검색 모드로 동작합니다.');
+        } else {
+          showToast('설정이 이 태블릿 브라우저에 안전하게 저장되었습니다.');
+        }
+        saveStateToStorage();
+        renderEngineBadge();
+        closeSettingsModal();
+      });
+
+      // Reset sample docs
+      document.getElementById('btnResetDefaultData').addEventListener('click', () => {
+        state.docs = JSON.parse(JSON.stringify(DEFAULT_DOCS));
+        state.todos = JSON.parse(JSON.stringify(DEFAULT_TODOS));
+        state.activeDocId = state.docs[0].id;
+        state.isEditingDoc = false;
+        saveStateToStorage();
+        renderWikiSection();
+        renderTodos();
+        renderEngineBadge();
+        closeSettingsModal();
+        showToast('기본 가족 위키 샘플 문서 4종으로 복원되었습니다.');
+      });
+
+      // GitHub Sync Button
+      document.getElementById('btnSyncGithub').addEventListener('click', syncDocsFromGithub);
+
+      // Download full index.html file directly
+      document.getElementById('btnDownloadHtmlFile').addEventListener('click', () => {
+        const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'index.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('GitHub Pages 업로드용 index.html 파일이 다운로드되었습니다!');
+      });
+    }
+
+    // --- Initialize App ---
+    window.addEventListener('DOMContentLoaded', () => {
+      loadStateFromStorage();
+      updateClock();
+      setInterval(updateClock, 15000);
+      renderEngineBadge();
+      renderTodos();
+      renderWikiSection();
+      renderChat();
+      bindEvents();
+    });
+  </script>
+</body>
+</html>
