@@ -231,6 +231,34 @@
         </div>
       </div>
 
+      <!-- Google Calendar Live Schedule Card -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <h2 class="text-sm font-semibold text-slate-200">구글 캘린더 · 오늘 & 이번 주 가족 일정</h2>
+            <span id="calendarSyncBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">연동 대기</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-quick-ask="오늘이랑 이번 주 구글 캘린더에 잡힌 가족 일정 요약해서 알려줘"
+              class="quick-ask-btn px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-[11px] font-medium text-blue-300"
+            >
+              AI 일정 브리핑
+            </button>
+            <button
+              id="btnRefreshCalendar"
+              type="button"
+              class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-200"
+            >
+              일정 새로고침
+            </button>
+          </div>
+        </div>
+        <div id="calendarEventsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto custom-scroll pr-1"></div>
+      </div>
+
       <!-- Markdown Wiki Folder & Document Viewer -->
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex-1 flex flex-col min-h-[420px]">
         <!-- Category Filter Tabs & File Import/Export -->
@@ -542,6 +570,23 @@
             />
           </div>
         </div>
+
+        <!-- Google Calendar Apps Script Config -->
+        <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-300">3. 구글 캘린더 자동 연동 (Google Apps Script)</span>
+            <span class="text-[11px] text-slate-400">오늘 + 7일간 일정 자동 동기화</span>
+          </div>
+          <div>
+            <label for="inputCalendarUrl" class="block text-xs text-slate-400 mb-1">Apps Script 웹 앱 주소 (URL)</label>
+            <input
+              id="inputCalendarUrl"
+              type="text"
+              placeholder="https://script.google.com/macros/s/.../exec"
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+        </div>
       </div>
 
       <div class="flex items-center justify-between pt-3 border-t border-slate-800">
@@ -674,8 +719,11 @@
         ollamaModel: 'qwen2.5:7b',
         githubRepo: '',
         githubPath: '',
-        githubToken: ''
-      }
+        githubToken: '',
+        calendarUrl: ''
+      },
+      calendarEvents: [],
+      calendarLastSync: ''
     };
 
     // --- Safe Storage Helpers ---
@@ -907,6 +955,104 @@
       }
     }
 
+    // --- Render & Fetch Google Calendar Events ---
+    function formatCalendarDateLabel(isoStr, isAllDay) {
+      if (!isoStr) return '';
+      const dt = new Date(isoStr);
+      if (isNaN(dt.getTime())) return isoStr;
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      const now = new Date();
+      const isToday = dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth() && dt.getDate() === now.getDate();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      const isTomorrow = dt.getFullYear() === tomorrow.getFullYear() && dt.getMonth() === tomorrow.getMonth() && dt.getDate() === tomorrow.getDate();
+
+      let dayPrefix = `${dt.getMonth() + 1}/${dt.getDate()}(${days[dt.getDay()]})`;
+      if (isToday) dayPrefix = '오늘';
+      else if (isTomorrow) dayPrefix = '내일';
+
+      if (isAllDay) return `${dayPrefix} · 종일`;
+      const hh = String(dt.getHours()).padStart(2, '0');
+      const mm = String(dt.getMinutes()).padStart(2, '0');
+      return `${dayPrefix} ${hh}:${mm}`;
+    }
+
+    function renderCalendarEvents() {
+      const container = document.getElementById('calendarEventsContainer');
+      const badge = document.getElementById('calendarSyncBadge');
+      if (!container || !badge) return;
+
+      if (!state.settings.calendarUrl || !state.settings.calendarUrl.trim()) {
+        badge.textContent = '설정에서 URL 입력 필요';
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+        container.innerHTML = `
+          <div class="sm:col-span-2 p-3 rounded-xl bg-slate-950/60 border border-dashed border-slate-800 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2">
+            <span>Google Apps Script 웹 앱 주소를 연결하면 오늘부터 7일간의 구글 캘린더 일정이 자동으로 표시됩니다.</span>
+            <button type="button" id="btnOpenSettingsFromCal" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-medium">연동 설정하기</button>
+          </div>
+        `;
+        const quickBtn = document.getElementById('btnOpenSettingsFromCal');
+        if (quickBtn) quickBtn.addEventListener('click', openSettingsModal);
+        return;
+      }
+
+      if (state.calendarLastSync) {
+        badge.textContent = `동기화 완료 (${state.calendarLastSync})`;
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      }
+
+      if (!state.calendarEvents.length) {
+        container.innerHTML = `<div class="sm:col-span-2 p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 text-center">향후 7일간 등록된 구글 캘린더 일정이 없습니다.</div>`;
+        return;
+      }
+
+      container.innerHTML = state.calendarEvents.slice(0, 8).map(ev => {
+        const timeLabel = formatCalendarDateLabel(ev.start, ev.allDay);
+        const isTodayEvent = timeLabel.startsWith('오늘');
+        return `
+          <div class="p-2.5 rounded-xl border ${isTodayEvent ? 'bg-emerald-950/30 border-emerald-500/40' : 'bg-slate-950/70 border-slate-800'} flex flex-col justify-between">
+            <div class="flex items-center justify-between gap-1.5">
+              <span class="text-[11px] font-semibold ${isTodayEvent ? 'text-emerald-300' : 'text-blue-300'}">${escapeHtml(timeLabel)}</span>
+              ${ev.location ? `<span class="text-[10px] text-slate-400 truncate max-w-[110px]">${escapeHtml(ev.location)}</span>` : ''}
+            </div>
+            <div class="text-xs font-medium text-slate-100 mt-1 truncate">${escapeHtml(ev.title || '제목 없는 일정')}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function fetchGoogleCalendarEvents(silent = false) {
+      const url = (state.settings.calendarUrl || '').trim();
+      if (!url || !url.startsWith('https://')) {
+        renderCalendarEvents();
+        return;
+      }
+
+      const badge = document.getElementById('calendarSyncBadge');
+      if (badge) {
+        badge.textContent = '불러오는 중...';
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30';
+      }
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (Array.isArray(data.events) ? data.events : []);
+        state.calendarEvents = list;
+        const now = new Date();
+        state.calendarLastSync = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        renderCalendarEvents();
+        if (!silent) showToast(`구글 캘린더 일정 ${list.length}개를 불러왔습니다!`);
+      } catch (err) {
+        if (badge) {
+          badge.textContent = '연동 오류';
+          badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30';
+        }
+        if (!silent) showToast('구글 캘린더 주소를 불러오지 못했습니다. Apps Script 배포 권한을 확인해 주세요.');
+      }
+    }
+
     // --- Render Chat Messages ---
     function renderChat() {
       const box = document.getElementById('chatMessagesBox');
@@ -941,6 +1087,13 @@
     // --- Built-in Local Smart Wiki RAG Search (Zero-API Fallback) ---
     function searchLocalWikiAnswer(question) {
       const q = question.toLowerCase();
+      if ((q.includes('캘린더') || q.includes('일정') || q.includes('오늘') || q.includes('이번 주') || q.includes('스케줄')) && state.calendarEvents.length) {
+        const calText = state.calendarEvents.slice(0, 8).map(ev => `- **${formatCalendarDateLabel(ev.start, ev.allDay)}**: ${ev.title}${ev.location ? ' (' + ev.location + ')' : ''}`).join('\n');
+        return {
+          text: `구글 캘린더에서 불러온 **오늘 · 이번 주 가족 일정**입니다:\n\n${calText}`,
+          source: '구글 캘린더 연동'
+        };
+      }
       const keywords = q
         .replace(/[?.,!]/g, ' ')
         .split(/\s+/)
@@ -988,7 +1141,10 @@
       renderChat();
 
       const wikiContext = state.docs.map(d => `[파일명: ${d.filename} | 제목: ${d.title}]\n${d.content}`).join('\n\n---\n\n');
-      const systemInstruction = `당신은 거실 태블릿에서 동작하는 '우리집 AI 위키 비서'입니다. 아래에 제공된 우리 가족의 마크다운(.md) 위키 문서 내용을 최우선 근거로 삼아 친절하고 간결하게 한국어로 답변하세요. 어르신이나 아이도 읽기 쉽게 핵심만 요약해 주세요.\n\n[우리집 위키 문서 전체 내용]\n${wikiContext}`;
+      const calendarContext = state.calendarEvents.length
+        ? '\n\n[구글 캘린더 실시간 일정 (오늘~7일)]\n' + state.calendarEvents.map(ev => `- ${formatCalendarDateLabel(ev.start, ev.allDay)} | ${ev.title}${ev.location ? ' | 장소: ' + ev.location : ''}`).join('\n')
+        : '';
+      const systemInstruction = `당신은 거실 태블릿에서 동작하는 '우리집 AI 위키 비서'입니다. 아래에 제공된 우리 가족의 마크다운(.md) 위키 문서 내용을 최우선 근거로 삼아 친절하고 간결하게 한국어로 답변하세요. 어르신이나 아이도 읽기 쉽게 핵심만 요약해 주세요.\n\n[우리집 위키 문서 전체 내용]\n${wikiContext}${calendarContext}`;
 
       const provider = state.settings.provider;
 
@@ -1193,6 +1349,7 @@
       document.getElementById('inputGithubRepo').value = state.settings.githubRepo || '';
       document.getElementById('inputGithubPath').value = state.settings.githubPath || '';
       document.getElementById('inputGithubToken').value = state.settings.githubToken || '';
+      document.getElementById('inputCalendarUrl').value = state.settings.calendarUrl || '';
       updateSettingsModalProviderUI(state.settings.provider || 'gemini');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -1432,6 +1589,7 @@
         state.settings.githubRepo = document.getElementById('inputGithubRepo').value.trim();
         state.settings.githubPath = document.getElementById('inputGithubPath').value.trim();
         state.settings.githubToken = document.getElementById('inputGithubToken').value.trim();
+        state.settings.calendarUrl = document.getElementById('inputCalendarUrl').value.trim();
 
         if (state.settings.provider === 'gemini' && !state.settings.geminiKey) {
           showToast('Gemini API 키가 비어 있어 내장 위키 검색 모드로 동작합니다.');
@@ -1441,6 +1599,7 @@
         saveStateToStorage();
         renderEngineBadge();
         closeSettingsModal();
+        if (state.settings.calendarUrl) fetchGoogleCalendarEvents(true); else renderCalendarEvents();
       });
 
       // Reset sample docs
@@ -1459,6 +1618,9 @@
 
       // GitHub Sync Button
       document.getElementById('btnSyncGithub').addEventListener('click', syncDocsFromGithub);
+
+      // Google Calendar Refresh Button
+      document.getElementById('btnRefreshCalendar').addEventListener('click', () => fetchGoogleCalendarEvents(false));
 
       // Download full index.html file directly
       document.getElementById('btnDownloadHtmlFile').addEventListener('click', () => {
@@ -1483,6 +1645,8 @@
       setInterval(updateClock, 15000);
       renderEngineBadge();
       renderTodos();
+      renderCalendarEvents();
+      if (state.settings.calendarUrl) fetchGoogleCalendarEvents(true);
       renderWikiSection();
       renderChat();
       bindEvents();
